@@ -33,11 +33,13 @@ class Assembler(object):
             text = program.read()
         except AttributeError:
             text = program
+        # save the program
+        self.text = text 
         # setup the registers
         self.registers = Registers()
 
         # cleanup the code
-        lines = text.split('\n')
+        lines = self.text.split('\n')
         lines = self.clean(lines)
 
         # split the code into data and program sections
@@ -58,6 +60,9 @@ class Assembler(object):
         for proc in procs:
             self.instrs.append(Instruction(proc))
         self.run(verbose=v, pc=-2)
+
+    def restore(self):
+        self.__init__(self.text)
 
     def run(self, verbose=0, bp=[], pc=0):
         # bp is a list of breakpoints
@@ -307,6 +312,7 @@ class Memory(object):
         self.labels = {}
         self.print_type = print_type
         self.offset = offset
+        self.default_offset = offset
     def __str__(self):
         str_return = '\nMemories:\n'
         for i in list(self.data.keys())[::8]:
@@ -349,7 +355,7 @@ class Memory(object):
             # since return_val |= 0 << x is just return val
             # we don't have to do anything
             pass
-        return return_val
+        return return_val if not (return_val & (1 << 63)) else (return_val - (1<<64))
     def insert(self, line):
         # this is to take the data lines and store it with a specific label
         # the format is .dtype NAME CSV
@@ -361,6 +367,11 @@ class Memory(object):
         for value in values:
             self[self.offset] = int(value)
             self.offset += 8
+    def reset(self):
+        self.__init__()
+        #self.data = {}
+        #self.labels = {}
+        #self.offset = self.default_offset
 class Flags(object):
     def __init__(self, N=0, C=0, Z=0, V=0):
         self.N = N
@@ -418,16 +429,18 @@ class Registers(object):
         if isinstance(key, int):
             return self.data[key]
         elif isinstance(key, str):
-            return self.data[self.conversion_dict[key]]
+            return self.data[self.conversion_dict[key.upper()]]
         else:
             raise ValueError("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))
     def __setitem__(self, key, value):
         if isinstance(key, int):
             self.data[key] = value
         elif isinstance(key, str):
-            self.data[self.conversion_dict[key]] = value
+            self.data[self.conversion_dict[key.upper()]] = value
         else:
             raise ValueError("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))
+    def reset(self):
+        self.__init__()
 
 def main(argv):
     parser = argparse.ArgumentParser()
