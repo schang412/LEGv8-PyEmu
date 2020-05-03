@@ -25,6 +25,7 @@ SOFTWARE.
 
 import argparse
 import sys
+import re
 
 class Assembler(object):
     def __init__(self, program):
@@ -73,142 +74,145 @@ class Assembler(object):
         instr_exec_history = 'Instruction Execution History: \n'
         if verbose:
             print('*** Program Execution Begin ***')
-        while program_counter < len(self.instrs):
-            instr = self.instrs[program_counter]
+        try:
+            while program_counter < len(self.instrs):
+                instr = self.instrs[program_counter]
 
-            if program_counter in self.labels.values():
-                program_counter += 1
-                continue
+                if program_counter in self.labels.values():
+                    program_counter += 1
+                    continue
 
-            op = instr.operation
+                op = instr.operation
 
-            # all commands that set the flags ends in S
-            set_flags = False
-            if op[-1] == 'S':
-                set_flags = True
-                op = op[:-1]
+                # all commands that set the flags ends in S
+                set_flags = False
+                if op[-1] == 'S':
+                    set_flags = True
+                    op = op[:-1]
 
-            instr_exec_history += '{:10d}: {}\n'.format(program_counter, instr)
-            if program_counter in bp:
-                print('{} BREAKPOINT: {} {}'.format(terminal_fonts.BOLD, instr, terminal_fonts.END))
-                print(self.registers)
-                print(self.memory)
-                input("Press any key to continue")
+                instr_exec_history += '{:10d}: {}\n'.format(program_counter, instr)
+                if program_counter in bp:
+                    print('{} BREAKPOINT: {} {}'.format(terminal_fonts.BOLD, instr, terminal_fonts.END))
+                    print(self.registers)
+                    print(self.memory)
+                    input("Press any key to continue")
 
-            # run through all the commands
-            if op == 'ADD':
-                self.registers[instr.operand0] = self.registers[instr.operand1] + self.registers[instr.operand2]
-            elif op == 'ADDI':
-                self.registers[instr.operand0] = self.registers[instr.operand1] + self.immediate(instr.operand2)
-            elif op == 'AND':
-                self.registers[instr.operand0] = self.registers[instr.operand1] & self.registers[instr.operand2]
-            elif op == 'ANDI':
-                self.registers[instr.operand0] = self.registers[instr.operand1] & self.immediate(instr.operand2)
-            elif op == "B":
-                program_counter = self.labels[instr.operand0]
-            elif op == "BL":
-                self.registers['LR'] = program_counter + 1
-                program_counter = self.labels[instr.operand0]
-            elif op == "BR":
-                program_counter = self.registers[instr.operand0] - 1
-            elif op == "CBNZ":
-                if self.registers[instr.operand0] != 0:
-                    program_counter = self.labels[instr.operand1]
-            elif op == "CBZ":
-                if self.registers[instr.operand0] == 0:
-                    program_counter = self.labels[instr.operand1]
-            elif op[0] == 'B':
-                cond = op.split('.')[1]
-                cond_pass = False
+                # run through all the commands
+                if op == 'ADD':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] + self.registers[instr.operand2]
+                elif op == 'ADDI':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] + self.immediate(instr.operand2)
+                elif op == 'AND':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] & self.registers[instr.operand2]
+                elif op == 'ANDI':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] & self.immediate(instr.operand2)
+                elif op == "B":
+                    program_counter = self.labels[instr.operand0]
+                elif op == "BL":
+                    self.registers['LR'] = program_counter + 1
+                    program_counter = self.labels[instr.operand0]
+                elif op == "BR":
+                    program_counter = self.registers[instr.operand0] - 1
+                elif op == "CBNZ":
+                    if self.registers[instr.operand0] != 0:
+                        program_counter = self.labels[instr.operand1]
+                elif op == "CBZ":
+                    if self.registers[instr.operand0] == 0:
+                        program_counter = self.labels[instr.operand1]
+                elif op[0] == 'B':
+                    cond = op.split('.')[1]
+                    cond_pass = False
 
-                if cond == 'EQ':
-                    cond_pass = bool(self.flags.Z)
-                elif cond == 'NE':
-                    cond_pass = not bool(self.flags.Z)
-                elif cond == 'LT':
-                    cond_pass = (bool(self.flags.N) != bool(self.flags.V))
-                elif cond == 'GE':
-                    cond_pass = (bool(self.flags.N) == bool (self.flags.V))
-                elif cond == 'LE':
-                    cond_pass = (bool(self.flags.N) != bool(self.flags.V)) or bool(self.flags.Z)
-                elif cond == 'MI':
-                    cond_pass = (bool(self.flags.N))
-                elif cond == 'PL':
-                    cond_pass = not (bool(self.flags.N))
-                elif cond == 'VS':
-                    cond_pass = bool(self.flags.V)
-                elif cond == 'VC':
-                    cond_pass = not bool(self.flags.V)
-                elif cond == 'LO':
-                    cond_pass = not bool(self.flags.C)
-                elif cond == 'HS':
-                    cond_pass = bool(self.flags.C)
-                elif cond == 'LS':
-                    cond_pass = not bool(self.flags.C) or bool(self.flags.Z)
-                elif cond == 'HI':
-                    cond_pass = bool(self.flags.C) and not bool(self.flags.Z)
+                    if cond == 'EQ':
+                        cond_pass = bool(self.flags.Z)
+                    elif cond == 'NE':
+                        cond_pass = not bool(self.flags.Z)
+                    elif cond == 'LT':
+                        cond_pass = (bool(self.flags.N) != bool(self.flags.V))
+                    elif cond == 'GE':
+                        cond_pass = (bool(self.flags.N) == bool (self.flags.V))
+                    elif cond == 'LE':
+                        cond_pass = (bool(self.flags.N) != bool(self.flags.V)) or bool(self.flags.Z)
+                    elif cond == 'MI':
+                        cond_pass = (bool(self.flags.N))
+                    elif cond == 'PL':
+                        cond_pass = not (bool(self.flags.N))
+                    elif cond == 'VS':
+                        cond_pass = bool(self.flags.V)
+                    elif cond == 'VC':
+                        cond_pass = not bool(self.flags.V)
+                    elif cond == 'LO':
+                        cond_pass = not bool(self.flags.C)
+                    elif cond == 'HS':
+                        cond_pass = bool(self.flags.C)
+                    elif cond == 'LS':
+                        cond_pass = not bool(self.flags.C) or bool(self.flags.Z)
+                    elif cond == 'HI':
+                        cond_pass = bool(self.flags.C) and not bool(self.flags.Z)
+                    else:
+                        print('Operation not defined: {}'.format(op))
+                        return self
+                    if cond_pass:
+                        program_counter = self.labels[instr.operand0]
+                elif op == 'EOR':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] ^ self.registers[instr.operand2]
+                elif op == 'EORI':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] ^ self.immediate(instr.operand2)
+                elif op == 'LDUR':
+                    self.registers[instr.operand0] = self.memory[self.address_composer(instr.operand1, instr.operand2)]
+                elif op == 'LDA':
+                    self.registers[instr.operand0] = self.memory.labels[instr.operand1]
+                elif op == 'LSL':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] << self.immediate(instr.operand2)
+                elif op == 'LSR':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] >> self.immediate(instr.operand2)
+                elif op == 'ORR':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] | self.registers[instr.operand2]
+                elif op == 'ORRI':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] | self.immediate(instr.operand2)
+                elif op == 'STUR':
+                    self.memory[self.address_composer(instr.operand1, instr.operand2)] = self.registers[instr.operand0]
+                elif op == 'STOP':
+                    break
+                elif op == 'PUTINT':
+                    self.console_buffer += str(self.registers[instr.operand0])
+                elif op == 'PUTCHAR':
+                    self.console_buffer += chr(self.registers[instr.operand0])
+                elif op == 'SUB':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] - self.registers[instr.operand2]
+                elif op == 'SUBI':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] - self.immediate(instr.operand2)
+                elif op == 'MUL':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] * self.registers[instr.operand2]
+                elif op == 'UDIV':
+                    self.registers[instr.operand0] = self.registers[instr.operand1] // self.registers[instr.operand2]
                 else:
                     print('Operation not defined: {}'.format(op))
                     return self
-                if cond_pass:
-                    program_counter = self.labels[instr.operand0]
-            elif op == 'EOR':
-                self.registers[instr.operand0] = self.registers[instr.operand1] ^ self.registers[instr.operand2]
-            elif op == 'EORI':
-                self.registers[instr.operand0] = self.registers[instr.operand1] ^ self.immediate(instr.operand2)
-            elif op == 'LDUR':
-                self.registers[instr.operand0] = self.memory[self.address_composer(instr.operand1, instr.operand2)]
-            elif op == 'LDA':
-                self.registers[instr.operand0] = self.memory.labels[instr.operand1]
-            elif op == 'LSL':
-                self.registers[instr.operand0] = self.registers[instr.operand1] << self.immediate(instr.operand2)
-            elif op == 'LSR':
-                self.registers[instr.operand0] = self.registers[instr.operand1] >> self.immediate(instr.operand2)
-            elif op == 'ORR':
-                self.registers[instr.operand0] = self.registers[instr.operand1] | self.registers[instr.operand2]
-            elif op == 'ORRI':
-                self.registers[instr.operand0] = self.registers[instr.operand1] | self.immediate(instr.operand2)
-            elif op == 'STUR':
-                self.memory[self.address_composer(instr.operand1, instr.operand2)] = self.registers[instr.operand0]
-            elif op == 'STOP':
-                break
-            elif op == 'PUTINT':
-                self.console_buffer += str(self.registers[instr.operand0])
-            elif op == 'PUTCHAR':
-                self.console_buffer += chr(self.registers[instr.operand0])
-            elif op == 'SUB':
-                self.registers[instr.operand0] = self.registers[instr.operand1] - self.registers[instr.operand2]
-            elif op == 'SUBI':
-                self.registers[instr.operand0] = self.registers[instr.operand1] - self.immediate(instr.operand2)
-            elif op == 'MUL':
-                self.registers[instr.operand0] = self.registers[instr.operand1] * self.registers[instr.operand2]
-            elif op == 'UDIV':
-                self.registers[instr.operand0] = self.registers[instr.operand1] // self.registers[instr.operand2]
-            else:
-                print('Operation not defined: {}'.format(op))
-                return self
-            
-            # actually set the flags
-            if set_flags:
-                N = int(self.registers[instr.operand0] < 0)
-                Z = int(self.registers[instr.operand0] == 0)
-                C = int(2**64-1 < self.registers[instr.operand0])
-                V = int(2**63-1 < self.registers[instr.operand0] < 2**64-1)
-                self.flags.update(N=N, Z=Z, C=C, V=V)
+                
+                # actually set the flags
+                if set_flags:
+                    N = int(self.registers[instr.operand0] < 0)
+                    Z = int(self.registers[instr.operand0] == 0)
+                    C = int(2**64-1 < self.registers[instr.operand0])
+                    V = int(2**63-1 < self.registers[instr.operand0] < 2**64-1)
+                    self.flags.update(N=N, Z=Z, C=C, V=V)
 
-            self.check_overflow()
+                self.check_overflow()
 
-            # XZR should always be 0
-            self.registers['XZR'] = 0
+                # XZR should always be 0
+                self.registers['XZR'] = 0
 
-            # verbose level 
-            if verbose >= 3:
-                print(self.registers)
-                if verbose >= 4:
-                    print('Operation: [{}], Operand0: [{}], Operand1: [{}], Operand2: [{}]'.format(op, instr.operand0, instr.operand1, instr.operand2))
-                    print(self.memory)
+                # verbose level 
+                if verbose >= 3:
+                    print(self.registers)
+                    if verbose >= 4:
+                        print('Operation: [{}], Operand0: [{}], Operand1: [{}], Operand2: [{}]'.format(op, instr.operand0, instr.operand1, instr.operand2))
+                        print(self.memory)
 
-            program_counter += 1
+                program_counter += 1
+        except:
+            raise SyntaxError(terminal_fonts.to_error('Last run command: {}'.format(self.instrs[program_counter]))) from None
         if verbose:
             print('*** Program Execution Finish ***')
             print(self)
@@ -264,6 +268,8 @@ class Assembler(object):
         for line in lines:
             word = line.split(" ")[0]
             if (word[-1] == ':'):
+                if word[:-1] in label_lines:
+                    raise ValueError(terminal_fonts.to_error("Line label '{}' occurs more than once".format(word[:-1])))
                 label_lines[word[:-1]] = current_line
             current_line += 1
         return label_lines
@@ -271,15 +277,15 @@ class Assembler(object):
         if operand[0] == '#':
             q = int(operand[1:])
             if q > (2**8):
-                print('{}Warning immediate value (#{}) is not able to be processed bare metal{}'.format(terminal_fonts.WARNING, q, terminal_fonts.END))
+                print(terminal_fonts.to_warning('Warning immediate value (#{}) is not able to be processed bare metal'.format(q)))
             return q
         else:
-            raise SyntaxError('Unknown immediate value: {}'.format(operand))
+            raise SyntaxError(terminal_fonts.to_error('Unknown immediate value: {}'.format(operand)))
     def address_composer(self, operand1, operand2):
         if not (operand1[0] == '[' and operand2[-1] == ']'):
-            raise SyntaxError('Unknown address: {}, {}'.format(operand1, operand2))
+            raise SyntaxError(terminal_fonts.to_error('Unknown address: {}, {}'.format(operand1, operand2)))
         if not (operand2[0] == '#'):
-            raise SyntaxError('Unknown immediate value: {}'.format(operand2))
+            raise SyntaxError(terminal_fonts.to_error('Unknown immediate value: {}'.format(operand2)))
         return self.registers[operand1[1:]] + int(operand2[1:-1])
 
     def __str__(self):
@@ -300,16 +306,34 @@ class Assembler(object):
 
 class terminal_fonts:
     WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    OK = '\033[92m'
     BOLD = '\033[1m'
     END = '\033[0m'
+    def to_error(msg):
+        return terminal_fonts.FAIL + str(msg) + terminal_fonts.END
+    def to_warning(msg):
+        return terminal_fonts.WARNING + str(msg) + terminal_fonts.END
+    def to_ok(msg):
+        return terminal_fonts.OK + str(msg) + terminal_fonts.END
 class Instruction(object):
-    def __init__(self, line):
+    def __init__(self, line, strict=True):
         self.raw = line
-        words = line.upper().replace(",", " ").split()
-        self.operation = words[0]
-        self.operand0 = words[1] if len(words) > 1 else None
-        self.operand1 = words[2] if len(words) > 2 else None
-        self.operand2 = words[3] if len(words) > 3 else None
+        line = line.upper()
+        
+        if strict:
+            q=re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:,\s+?((?:\[(?:\s+)?)?\w+))?(?:,\s+?(\#?-?\w+(?:\])?))?", line)
+            self.operation = q.groups()[0]
+            self.operand0 = q.groups()[1]
+            self.operand1 = q.groups()[2]
+            self.operand2 = q.groups()[3]
+        else:
+            words = line.upper().replace(",", " ").split()
+            self.operation = words[0]
+            self.operand0 = words[1] if len(words) > 1 else None
+            self.operand1 = words[2] if len(words) > 2 else None
+            self.operand2 = words[3] if len(words) > 3 else None
+
     def __str__(self):
         return "{} {}".format(self.operation, ", ".join([v for v in [self.operand0, self.operand1, self.operand2] if v is not None]))
     def update(self, operation, operand0, operand1, operand2):
@@ -374,7 +398,7 @@ class Memory(object):
         dtype, name, values = line.split(None, 2)
         dtype, name, values = dtype[1:].lower(), name.upper(), [v.strip() for v in values.split(",")]
         if dtype not in ['long']:
-            raise ValueError('Invalid data type: {}'.format(dtype))
+            raise ValueError(terminal_fonts.to_error('Invalid data type: {}'.format(dtype)))
         self.labels[name] = self.offset
         for value in values:
             self[self.offset] = int(value)
@@ -456,19 +480,25 @@ class Registers(object):
             str_return += '======================================================================|\n'
         return str_return
     def __getitem__(self, key):
-        if isinstance(key, int):
-            return self.data[key]
-        elif isinstance(key, str):
-            return self.data[self.conversion_dict[key.upper()]]
-        else:
-            raise ValueError("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))
+        try:
+            if isinstance(key, int):
+                return self.data[key]
+            elif isinstance(key, str):
+                return self.data[self.conversion_dict[key.upper()]]
+            else:
+                raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key)))
+        except KeyError:
+            raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))) from None
     def __setitem__(self, key, value):
-        if isinstance(key, int):
-            self.data[key] = value
-        elif isinstance(key, str):
-            self.data[self.conversion_dict[key.upper()]] = value
-        else:
-            raise ValueError("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))
+        try:
+            if isinstance(key, int):
+                self.data[key] = value
+            elif isinstance(key, str):
+                self.data[self.conversion_dict[key.upper()]] = value
+            else:
+                raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key)))
+        except KeyError:
+            raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))) from None
     def reset(self):
         self.__init__()
 
