@@ -59,7 +59,8 @@ class Assembler(object):
         procs = ['BL {}'.format(uut.upper().strip()), 'STOP']
         for proc in procs:
             self.instrs.append(Instruction(proc))
-        self.run(verbose=v, pc=-2)
+
+        self.run(verbose=v, pc=(len(self.instrs) - 2))
 
     def restore(self):
         self.__init__(self.text)
@@ -70,6 +71,8 @@ class Assembler(object):
         program_counter = pc
         # run while program_counter hasn't reached the end
         instr_exec_history = 'Instruction Execution History: \n'
+        if verbose:
+            print('*** Program Execution Begin ***')
         while program_counter < len(self.instrs):
             instr = self.instrs[program_counter]
 
@@ -89,8 +92,7 @@ class Assembler(object):
             if program_counter in bp:
                 print('{} BREAKPOINT: {} {}'.format(terminal_fonts.BOLD, instr, terminal_fonts.END))
                 print(self.registers)
-                if verbose >= 2:
-                    print(self.memory)
+                print(self.memory)
                 input("Press any key to continue")
 
             # run through all the commands
@@ -105,10 +107,10 @@ class Assembler(object):
             elif op == "B":
                 program_counter = self.labels[instr.operand0]
             elif op == "BL":
-                self.registers['LR'] = program_counter
+                self.registers['LR'] = program_counter + 1
                 program_counter = self.labels[instr.operand0]
             elif op == "BR":
-                program_counter = self.registers[instr.operand0]
+                program_counter = self.registers[instr.operand0] - 1
             elif op == "CBNZ":
                 if self.registers[instr.operand0] != 0:
                     program_counter = self.labels[instr.operand1]
@@ -190,24 +192,34 @@ class Assembler(object):
             if set_flags:
                 N = int(self.registers[instr.operand0] < 0)
                 Z = int(self.registers[instr.operand0] == 0)
-                C = int(2**32-1 < self.registers[instr.operand0])
-                V = int(2**31-1 < self.registers[instr.operand0] < 2**32-1)
+                C = int(2**64-1 < self.registers[instr.operand0])
+                V = int(2**63-1 < self.registers[instr.operand0] < 2**64-1)
                 self.flags.update(N=N, Z=Z, C=C, V=V)
+
+            self.check_overflow()
 
             # XZR should always be 0
             self.registers['XZR'] = 0
 
-            # verbose level 3
+            # verbose level 
             if verbose >= 3:
-                print('Operation: [{}], Operand0: [{}], Operand1: [{}], Operand2: [{}]'.format(op, instr.operand0, instr.operand1, instr.operand2))
-                print(self.memory)
                 print(self.registers)
+                if verbose >= 4:
+                    print('Operation: [{}], Operand0: [{}], Operand1: [{}], Operand2: [{}]'.format(op, instr.operand0, instr.operand1, instr.operand2))
+                    print(self.memory)
 
             program_counter += 1
         if verbose:
             print('*** Program Execution Finish ***')
+            print(self)
+        if verbose >= 2:
             print(instr_exec_history)
         return self
+    def check_overflow(self):
+        for i in range(32):
+            if not (-2**64 <= self.registers[i] <= 2**64-1):
+                self.registers[i] = (self.registers[i] + (2**64)) % (2*(2**64))
+
 
     def clean(self, lines):
         # removes extra lines and comments
@@ -314,14 +326,14 @@ class Memory(object):
         self.offset = offset
         self.default_offset = offset
     def __str__(self):
-        str_return = '\nMemories:\n'
+        str_return = '\nMemories: (HEX: {})\n'.format(self.print_type)
         for i in list(self.data.keys())[::8]:
             if self.print_type == 'DEC':
-                str_return += '0x{:08X}: {:010d}\n'.format(i, self[i])
+                str_return += '0x{:016X}: {:19d}\n'.format(i, self[i])
             elif self.print_type == 'HEX':
-                str_return += '0x{:08X}: {:08X}\n'.format(i, self[i])
+                str_return += '0x{:016X}: {:16X}\n'.format(i, self[i])
             elif self.print_type == 'BIN':
-                str_return += '0x{:08X}: {:032b}\n'.format(i, self[i])
+                str_return += '0x{:016X}: {:064b}\n'.format(i, self[i])
         return str_return
     def __setitem__(self, key, value):
         # memory is stored in 8 bytes
@@ -369,9 +381,7 @@ class Memory(object):
             self.offset += 8
     def reset(self):
         self.__init__()
-        #self.data = {}
-        #self.labels = {}
-        #self.offset = self.default_offset
+
 class Flags(object):
     def __init__(self, N=0, C=0, Z=0, V=0):
         self.N = N
@@ -390,7 +400,7 @@ class Flags(object):
     def __str__(self):
         return 'Flags: N={}, C={}, V={}, Z={}'.format(self.N, self.C, self.V, self.Z)
 class Registers(object):
-    def __init__(self, SP_val=0xFFFFFFFC, FP_val=0xFFFFFFFC):
+    def __init__(self, SP_val=0x007FFFFFFFFC, FP_val=0x007FFFFFFFFC, print_type='DEC'):
         # we can refer to the same register using multiple names
         # so we make a dict that points to each register
         self.conversion_dict = {'X0': 0, 'X1': 1,
@@ -414,16 +424,36 @@ class Registers(object):
         self.data = [0] * (max(self.conversion_dict.values())+1)
         self['SP'] = SP_val
         self['FP'] = FP_val
+        self.print_type = print_type
     def __str__(self):
-        str_return = '\nRegisters:\n| ======================================================================|\n| '
-        for i in range(32):
-            p = 'X{}'.format(i)
-            if i < 10:
-                p = ' ' + p
-            str_return += '{}: {:10} | '.format(p, self.data[i])
-            if(((i+1)%4) == 0):
-                str_return += '\n| '
-        str_return += '======================================================================|\n'
+        if self.print_type == 'DEC':
+            str_return = '\nRegisters: (DEC)\n| ====================================================|\n| '
+            for i in range(32):
+                p = 'X{}'.format(i)
+                if i < 10:
+                    p = ' ' + p
+                str_return += '{}: {:19} | '.format(p, self.data[i])
+                if(((i+1)%2) == 0):
+                    str_return += '\n| '
+            str_return += '====================================================|\n'
+        elif self.print_type == 'HEX':
+            str_return = '\nRegisters: (HEX)\n| ==============================================|\n| '
+            for i in range(32):
+                p = 'X{}'.format(i)
+                if i < 10:
+                    p = ' ' + p
+                str_return += '{}: {:16x} | '.format(p, self.data[i] if self.data[i] >= 0 else (1<<64) + self.data[i])
+                if(((i+1)%2) == 0):
+                    str_return += '\n| '
+            str_return += '==============================================|\n'
+        elif self.print_type == 'BIN':
+            str_return = '\nRegisters: (BIN)\n| ======================================================================|\n| '
+            for i in range(32):
+                p = 'X{}'.format(i)
+                if i < 10:
+                    p = ' ' + p
+                str_return += '{}: {:064b} | \n| '.format(p, self.data[i] if self.data[i] >= 0 else (1<<64) + self.data[i])
+            str_return += '======================================================================|\n'
         return str_return
     def __getitem__(self, key):
         if isinstance(key, int):
