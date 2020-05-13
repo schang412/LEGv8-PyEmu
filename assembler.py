@@ -322,7 +322,7 @@ class Instruction(object):
         line = line.upper()
         
         if strict:
-            q=re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:,\s+?((?:\[(?:\s+)?)?\w+))?(?:,\s+?(\#?-?\w+(?:\])?))?", line)
+            q=re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:\s+)?(?:,(?:\s+)?((?:\[(?:\s+)?)?\w+))?(?:\s+)?(?:,(?:\s+)?(\#?-?\w+(?:\])?))?", line)
             self.operation = q.groups()[0]
             self.operand0 = q.groups()[1]
             self.operand1 = q.groups()[2]
