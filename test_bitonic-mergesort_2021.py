@@ -26,6 +26,45 @@ import sys
 
 from assembler import Assembler
 import random
+def floor_log2(n):
+        assert n > 0
+        last = n
+        n &= n -1
+        while n:
+            last = n
+            n &= n - 1
+        return last
+
+def test_findm(prog_obj, v=0):
+    # test parameters
+    input_n = random.sample(range(1,5000), 10)
+    expected_output = [floor_log2(x) for x in input_n]
+
+    uut = 'FindM'
+    test_status_summary = []
+    # test loop
+    print('Beginning test for {}...'.format(uut))
+    for i in range(len(input_n)):
+        # preload X0
+        prog_obj.registers['X0'] = input_n[i]
+
+        # run test
+        prog_obj.unit_test(uut,v)
+
+        # fetch output
+        output = prog_obj.registers['X0']
+
+        # print status
+        if expected_output[i] == output:
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            test_status_summary.append(True)
+        else:
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            test_status_summary.append(False)
+
+        # restore memory for next test
+        prog_obj.restore()
+    return test_status_summary
 
 def test_redloop(prog_obj, v=0):
     # test parameters
@@ -48,6 +87,7 @@ def test_redloop(prog_obj, v=0):
         # preload X0, X1
         prog_obj.registers['X0'] = prog_obj.memory.labels['A']
         prog_obj.registers['X1'] = len(input_arrays[i])
+        prog_obj.registers['X2'] = floor_log2(prog_obj.registers['X1'])
 
         # run test
         prog_obj.unit_test(uut,v)
@@ -71,7 +111,7 @@ def test_redloop(prog_obj, v=0):
 
 def test_blueloop(prog_obj, v=0):
     # test parameters
-    input_arrays = [[2,5,6,7], [2,4,3,1,7,6,5,8]]
+    input_arrays = [[2,5,6,7], [2,5,6,7,1,3,4,8]]
     expected_output_arrays = [[2,5,6,7], [2,4,3,1,7,6,5,8]]
     uut = 'BLueLoop'
 
@@ -90,6 +130,7 @@ def test_blueloop(prog_obj, v=0):
         # preload X0, X1
         prog_obj.registers['X0'] = prog_obj.memory.labels['A']
         prog_obj.registers['X1'] = len(input_arrays[i])
+        prog_obj.registers['X2'] = floor_log2(prog_obj.registers['X1'])
 
         # run test
         prog_obj.unit_test(uut,v)
@@ -196,19 +237,28 @@ def test_bluerecurssion(prog_obj,v=0):
     return test_status_summary
 
 def main():
-    p = open('complete_solution.txt', 'r')
+    p = open('tiw030_anliu_2021_project.s', 'r')
     a = Assembler(p)
-    v=1
+    v=0 # no extra info
+    # v=1 (parse info, end of program memory dump)
+    # v=2 (execution steps)
+    # v=3 (execution step register dump)
+    # v=4 (execution step parse and memory dump)
 
     test_summary = []
     units_under_test = []
 
+    units_under_test.append('FindM')
     units_under_test.append('RedLoop')
     units_under_test.append('BLueLoop')
     units_under_test.append('RedRecursion')
     units_under_test.append('BLueRecursion')
 
     print()
+    if 'FindM' in units_under_test:
+        test_summary.append(test_findm(a,v))
+        print()
+
     if 'RedLoop' in units_under_test:
         test_summary.append(test_redloop(a,v))
         print()

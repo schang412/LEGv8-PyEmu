@@ -15,7 +15,7 @@ The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+IMPLIED, INCLUDING BUT NOT LIM:21ITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
@@ -30,12 +30,12 @@ import re
 class Assembler(object):
     def __init__(self, program):
         # program should be the name of a file or just plain text
-        try: 
+        try:
             text = program.read()
         except AttributeError:
             text = program
         # save the program
-        self.text = text 
+        self.text = text
         # setup the registers
         self.registers = Registers()
 
@@ -50,7 +50,7 @@ class Assembler(object):
         self.memory = Memory()
         for d in data_lines:
             self.memory.insert(d)
-        # process the assembly commands 
+        # process the assembly commands
         asm_lines = self.preprocess(asm_lines)
         self.labels = self.line_labels(asm_lines)
         self.instrs = [Instruction(asm_line) for asm_line in asm_lines]
@@ -189,7 +189,7 @@ class Assembler(object):
                 else:
                     print('Operation not defined: {}'.format(op))
                     return self
-                
+
                 # actually set the flags
                 if set_flags:
                     N = int(self.registers[instr.operand0] < 0)
@@ -203,7 +203,7 @@ class Assembler(object):
                 # XZR should always be 0
                 self.registers['XZR'] = 0
 
-                # verbose level 
+                # verbose level
                 if verbose >= 3:
                     print(self.registers)
                     if verbose >= 4:
@@ -212,7 +212,7 @@ class Assembler(object):
 
                 program_counter += 1
         except:
-            raise SyntaxError(terminal_fonts.to_error('Last run command: {}'.format(self.instrs[program_counter]))) from None
+            raise SyntaxError(terminal_fonts.to_error('Last run command: {} at PC={}'.format(self.instrs[program_counter], program_counter))) from None
         if verbose:
             print('*** Program Execution Finish ***')
             print(self)
@@ -320,7 +320,7 @@ class Instruction(object):
     def __init__(self, line, strict=True):
         self.raw = line
         line = line.upper()
-        
+
         if strict:
             q=re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:\s+)?(?:,(?:\s+)?((?:\[(?:\s+)?)?\w+))?(?:\s+)?(?:,(?:\s+)?(\#?-?\w+(?:\])?))?", line)
             self.operation = q.groups()[0]
@@ -362,7 +362,7 @@ class Memory(object):
     def __setitem__(self, key, value):
         # memory is stored in 8 bytes
         # so split it into 8 bytes, and store each byte into the key
-        # we don't have to do this, but it will help catch code that 
+        # we don't have to do this, but it will help catch code that
         # slips in memory
         self.data[key] = value & 0xFF
         self.data[key+1] = (value >> 8) & 0xFF
