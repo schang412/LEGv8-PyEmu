@@ -26,18 +26,23 @@ import sys
 
 from assembler import Assembler
 import random
+import argparse
+import glob
+
+
 def floor_log2(n):
-        assert n > 0
+    assert n > 0
+    last = n
+    n &= n - 1
+    while n:
         last = n
-        n &= n -1
-        while n:
-            last = n
-            n &= n - 1
-        return last
+        n &= n - 1
+    return last
+
 
 def test_findm(prog_obj, v=0):
     # test parameters
-    input_n = random.sample(range(1,5000), 10)
+    input_n = random.sample(range(1, 5000), 10)
     expected_output = [floor_log2(x) for x in input_n]
 
     uut = 'FindM'
@@ -49,32 +54,33 @@ def test_findm(prog_obj, v=0):
         prog_obj.registers['X0'] = input_n[i]
 
         # run test
-        prog_obj.unit_test(uut,v)
+        prog_obj.unit_test(uut, v)
 
         # fetch output
         output = prog_obj.registers['X0']
 
         # print status
         if expected_output[i] == output:
-            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(True)
         else:
-            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(False)
 
         # restore memory for next test
         prog_obj.restore()
     return test_status_summary
 
+
 def test_redloop(prog_obj, v=0):
     # test parameters
-    input_arrays = [[2,4,3,1], [7,6,5,8]]
-    expected_output_arrays = [[2,1,3,4], [5,6,7,8]]
+    input_arrays = [[2, 4, 3, 1], [7, 6, 5, 8]]
+    expected_output_arrays = [[2, 1, 3, 4], [5, 6, 7, 8]]
     uut = 'RedLoop'
 
     test_status_summary = []
 
-    #test loop
+    # test loop
     print('Beginning test for {}...'.format(uut))
     for i in range(len(input_arrays)):
         # preload the array into memory
@@ -90,34 +96,35 @@ def test_redloop(prog_obj, v=0):
         prog_obj.registers['X2'] = floor_log2(prog_obj.registers['X1'])
 
         # run test
-        prog_obj.unit_test(uut,v)
+        prog_obj.unit_test(uut, v)
 
         # compose outputs
         output_array = []
         for j in range(len(input_arrays[i])):
-            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j*8)])
+            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j * 8)])
 
         # print status
         if expected_output_arrays[i] == output_array:
-            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(True)
         else:
-            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(False)
 
         # restore memory for next test
         prog_obj.restore()
     return test_status_summary
 
+
 def test_blueloop(prog_obj, v=0):
     # test parameters
-    input_arrays = [[2,5,6,7], [2,5,6,7,1,3,4,8]]
-    expected_output_arrays = [[2,5,6,7], [2,4,3,1,7,6,5,8]]
+    input_arrays = [[2, 5, 6, 7], [2, 5, 6, 7, 1, 3, 4, 8]]
+    expected_output_arrays = [[2, 5, 6, 7], [2, 4, 3, 1, 7, 6, 5, 8]]
     uut = 'BLueLoop'
 
     test_status_summary = []
 
-    #test loop
+    # test loop
     print('Beginning test for {}...'.format(uut))
     for i in range(len(input_arrays)):
         # preload the array into memory
@@ -133,34 +140,35 @@ def test_blueloop(prog_obj, v=0):
         prog_obj.registers['X2'] = floor_log2(prog_obj.registers['X1'])
 
         # run test
-        prog_obj.unit_test(uut,v)
+        prog_obj.unit_test(uut, v)
 
         # compose outputs
         output_array = []
         for j in range(len(input_arrays[i])):
-            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j*8)])
+            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j * 8)])
 
         # print status
         if expected_output_arrays[i] == output_array:
-            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(True)
         else:
-            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(False)
 
         # restore memory for next test
         prog_obj.restore()
     return test_status_summary
 
-def test_redrecurssion(prog_obj,v=0):
+
+def test_redrecurssion(prog_obj, v=0):
     # test parameters
-    input_arrays = [[2,4,3,1], [7,6,5,8]]
-    expected_output_arrays = [[1,2,3,4], [5,6,7,8]]
+    input_arrays = [[2, 4, 3, 1], [7, 6, 5, 8]]
+    expected_output_arrays = [[1, 2, 3, 4], [5, 6, 7, 8]]
     uut = 'RedRecursion'
 
     test_status_summary = []
 
-    #test loop
+    # test loop
     print('Beginning test for {}...'.format(uut))
     for i in range(len(input_arrays)):
         # preload the array into memory
@@ -175,34 +183,35 @@ def test_redrecurssion(prog_obj,v=0):
         prog_obj.registers['X1'] = len(input_arrays[i])
 
         # run test
-        prog_obj.unit_test(uut,v)
+        prog_obj.unit_test(uut, v)
 
         # compose outputs
         output_array = []
         for j in range(len(input_arrays[i])):
-            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j*8)])
+            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j * 8)])
 
         # print status
         if expected_output_arrays[i] == output_array:
-            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(True)
         else:
-            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(False)
 
         # restore memory for next test
         prog_obj.restore()
     return test_status_summary
 
-def test_bluerecurssion(prog_obj,v=0):
+
+def test_bluerecurssion(prog_obj, v=0):
     # test parameters
-    input_arrays = [[2,5,7,6], [2,5,7,6,8,1,3,4], [3,7,8,4,2,6,5,1], [3,7,4,8,6,2,1,5]]
-    expected_output_arrays = [[2,5,6,7], [1,2,3,4,5,6,7,8], [1,2,3,4,5,6,7,8], [1,2,3,4,5,6,7,8]]
+    input_arrays = [[2, 5, 7, 6], [2, 5, 7, 6, 8, 1, 3, 4], [3, 7, 8, 4, 2, 6, 5, 1], [3, 7, 4, 8, 6, 2, 1, 5]]
+    expected_output_arrays = [[2, 5, 6, 7], [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]]
     uut = 'BLueRecursion'
 
     test_status_summary = []
 
-    #test loop
+    # test loop
     print('Beginning test for {}...'.format(uut))
     for i in range(len(input_arrays)):
         # preload the array into memory
@@ -217,29 +226,38 @@ def test_bluerecurssion(prog_obj,v=0):
         prog_obj.registers['X1'] = len(input_arrays[i])
 
         # run test
-        prog_obj.unit_test(uut,v)
+        prog_obj.unit_test(uut, v)
 
         # compose outputs
         output_array = []
         for j in range(len(input_arrays[i])):
-            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j*8)])
+            output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j * 8)])
 
         # print status
         if expected_output_arrays[i] == output_array:
-            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i+1) + '\033[0m')
+            print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(True)
         else:
-            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i+1) + '\033[0m')
+            print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(uut, i + 1) + '\033[0m')
             test_status_summary.append(False)
 
         # restore memory for next test
         prog_obj.restore()
     return test_status_summary
 
+
 def main():
-    p = open('tiw030_anliu_2021_project.s', 'r')
+    file_under_test = glob.glob("*.soln.s")[0]
+    print("Testing: {}".format(file_under_test))
+    p = open(file_under_test, 'r')
     a = Assembler(p)
-    v=0 # no extra info
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbose", help="prints status of registers and memory", action='count', default=0)
+    args = parser.parse_args()
+
+    v = args.verbose  
+    # v=0 no extra info
     # v=1 (parse info, end of program memory dump)
     # v=2 (execution steps)
     # v=3 (execution step register dump)
@@ -256,30 +274,30 @@ def main():
 
     print()
     if 'FindM' in units_under_test:
-        test_summary.append(test_findm(a,v))
+        test_summary.append(test_findm(a, v))
         print()
 
     if 'RedLoop' in units_under_test:
-        test_summary.append(test_redloop(a,v))
+        test_summary.append(test_redloop(a, v))
         print()
 
     if 'BLueLoop' in units_under_test:
-        test_summary.append(test_blueloop(a,v))
+        test_summary.append(test_blueloop(a, v))
         print()
     if 'RedRecursion' in units_under_test:
-        test_summary.append(test_redrecurssion(a,v))
+        test_summary.append(test_redrecurssion(a, v))
         print()
     if 'BLueRecursion' in units_under_test:
-        test_summary.append(test_bluerecurssion(a,v))
+        test_summary.append(test_bluerecurssion(a, v))
         print()
 
     print('-------------------- Test Summary --------------------')
     for i in range(len(test_summary)):
         for j in range(len(test_summary[i])):
             if test_summary[i][j]:
-                print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(units_under_test[i], j+1) + '\033[0m')
+                print('\033[92m' + 'UUT: {} | Test: {} | passed'.format(units_under_test[i], j + 1) + '\033[0m')
             else:
-                print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(units_under_test[i], j+1) + '\033[0m')
+                print('\033[91m' + 'UUT: {} | Test: {} | failed'.format(units_under_test[i], j + 1) + '\033[0m')
         print()
 
 

@@ -27,6 +27,7 @@ import argparse
 import sys
 import re
 
+
 class Assembler(object):
     def __init__(self, program):
         # program should be the name of a file or just plain text
@@ -44,18 +45,19 @@ class Assembler(object):
         lines = self.clean(lines)
 
         # split the code into data and program sections
-        asm_lines, data_lines = self.split_sections(lines)
+        self.raw_asm_lines, data_lines = self.split_sections(lines)
 
         # put the data into memory
         self.memory = Memory()
         for d in data_lines:
             self.memory.insert(d)
         # process the assembly commands
-        asm_lines = self.preprocess(asm_lines)
+        asm_lines = self.preprocess(self.raw_asm_lines)
         self.labels = self.line_labels(asm_lines)
         self.instrs = [Instruction(asm_line) for asm_line in asm_lines]
         self.flags = Flags()
         self.console_buffer = ''
+
     def unit_test(self, uut, v=0):
         procs = ['BL {}'.format(uut.upper().strip()), 'STOP']
         for proc in procs:
@@ -130,7 +132,7 @@ class Assembler(object):
                     elif cond == 'LT':
                         cond_pass = (bool(self.flags.N) != bool(self.flags.V))
                     elif cond == 'GE':
-                        cond_pass = (bool(self.flags.N) == bool (self.flags.V))
+                        cond_pass = (bool(self.flags.N) == bool(self.flags.V))
                     elif cond == 'LE':
                         cond_pass = (bool(self.flags.N) != bool(self.flags.V)) or bool(self.flags.Z)
                     elif cond == 'MI':
@@ -161,7 +163,11 @@ class Assembler(object):
                 elif op == 'LDUR':
                     self.registers[instr.operand0] = self.memory[self.address_composer(instr.operand1, instr.operand2)]
                 elif op == 'LDA':
-                    self.registers[instr.operand0] = self.memory.labels[instr.operand1]
+                    try:
+                        self.registers[instr.operand0] = self.memory.labels[instr.operand1]
+                    except KeyError:
+                        print(terminal_fonts.to_error('"{}" is an invalid memory label.'.format(instr.operand1)))
+                        raise KeyError
                 elif op == 'LSL':
                     self.registers[instr.operand0] = self.registers[instr.operand1] << self.immediate(instr.operand2)
                 elif op == 'LSR':
@@ -194,8 +200,8 @@ class Assembler(object):
                 if set_flags:
                     N = int(self.registers[instr.operand0] < 0)
                     Z = int(self.registers[instr.operand0] == 0)
-                    C = int(2**64-1 < self.registers[instr.operand0])
-                    V = int(2**63-1 < self.registers[instr.operand0] < 2**64-1)
+                    C = int(2**64 - 1 < self.registers[instr.operand0])
+                    V = int(2**63 - 1 < self.registers[instr.operand0] < 2**64 - 1)
                     self.flags.update(N=N, Z=Z, C=C, V=V)
 
                 self.check_overflow()
@@ -212,18 +218,21 @@ class Assembler(object):
 
                 program_counter += 1
         except:
-            raise SyntaxError(terminal_fonts.to_error('Last run command: {} at PC={}'.format(self.instrs[program_counter], program_counter))) from None
+            if not verbose >= 2:
+                sys.tracebacklimit=0
+            raw_line = self.raw_asm_lines[program_counter]
+            raise SyntaxError(terminal_fonts.to_error('Last run command: "{}" at line {}'.format(raw_line, self.find_line_in_original(raw_line)))) from None
         if verbose:
             print('*** Program Execution Finish ***')
             print(self)
         if verbose >= 2:
             print(instr_exec_history)
         return self
+
     def check_overflow(self):
         for i in range(32):
-            if not (-2**64 <= self.registers[i] <= 2**64-1):
-                self.registers[i] = (self.registers[i] + (2**64)) % (2*(2**64))
-
+            if not (-2**64 <= self.registers[i] <= 2**64 - 1):
+                self.registers[i] = (self.registers[i] + (2**64)) % (2 * (2**64))
 
     def clean(self, lines):
         # removes extra lines and comments
@@ -235,11 +244,15 @@ class Assembler(object):
             if len(l.split(':')) > 1:
                 l1 = l.split(':')[0].strip() + ':'
                 l2 = l.split(':')[1].strip()
-                if l1: cleaned.append(l1)
-                if l2: cleaned.append(l2)
+                if l1:
+                    cleaned.append(l1)
+                if l2:
+                    cleaned.append(l2)
             # only put it into lines if its not blank
-            elif l: cleaned.append(l)
+            elif l:
+                cleaned.append(l)
         return cleaned
+
     def split_sections(self, lines):
         instr = []
         data = []
@@ -249,6 +262,7 @@ class Assembler(object):
             else:
                 instr.append(line)
         return instr, data
+
     def preprocess(self, lines):
         processed = []
         for line in lines:
@@ -262,6 +276,7 @@ class Assembler(object):
                 instr.update('ADD', instr.operand0, 'XZR', instr.operand1)
             processed.append(str(instr))
         return processed
+
     def line_labels(self, lines):
         label_lines = {}
         current_line = 0
@@ -273,6 +288,7 @@ class Assembler(object):
                 label_lines[word[:-1]] = current_line
             current_line += 1
         return label_lines
+
     def immediate(self, operand):
         if operand[0] == '#':
             q = int(operand[1:])
@@ -281,6 +297,7 @@ class Assembler(object):
             return q
         else:
             raise SyntaxError(terminal_fonts.to_error('Unknown immediate value: {}'.format(operand)))
+
     def address_composer(self, operand1, operand2):
         if not (operand1[0] == '[' and operand2[-1] == ']'):
             raise SyntaxError(terminal_fonts.to_error('Unknown address: {}, {}'.format(operand1, operand2)))
@@ -288,11 +305,16 @@ class Assembler(object):
             raise SyntaxError(terminal_fonts.to_error('Unknown immediate value: {}'.format(operand2)))
         return self.registers[operand1[1:]] + int(operand2[1:-1])
 
+    def find_line_in_original(self, match_string):
+        lines = self.text.split('\n')
+        for ln, line in enumerate(lines):
+            if match_string in line: return ln+1 
+
     def __str__(self):
         ret = ''
         ret += 'Labels: \n'
         for label in self.labels:
-            ret += '\t{}: {}\n'.format(label,self.labels[label])
+            ret += '\t{}: {}\n'.format(label, self.labels[label])
         ret += '\n\n Instructions: \n'
         i = 0
         for instr in self.instrs:
@@ -304,25 +326,31 @@ class Assembler(object):
         self.console_buffer = ''
         return ret
 
+
 class terminal_fonts:
     WARNING = '\033[93m'
     FAIL = '\033[91m'
     OK = '\033[92m'
     BOLD = '\033[1m'
     END = '\033[0m'
+
     def to_error(msg):
         return terminal_fonts.FAIL + str(msg) + terminal_fonts.END
+
     def to_warning(msg):
         return terminal_fonts.WARNING + str(msg) + terminal_fonts.END
+
     def to_ok(msg):
         return terminal_fonts.OK + str(msg) + terminal_fonts.END
+
+
 class Instruction(object):
     def __init__(self, line, strict=True):
         self.raw = line
         line = line.upper()
 
         if strict:
-            q=re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:\s+)?(?:,(?:\s+)?((?:\[(?:\s+)?)?\w+))?(?:\s+)?(?:,(?:\s+)?(\#?-?\w+(?:\])?))?", line)
+            q = re.match(r"((?:B.)?\w+:?)(?:\s+(\w+))?(?:\s+)?(?:,(?:\s+)?((?:\[(?:\s+)?)?\w+))?(?:\s+)?(?:,(?:\s+)?(\#?-?\w+(?:\])?))?", line)
             self.operation = q.groups()[0]
             self.operand0 = q.groups()[1]
             self.operand1 = q.groups()[2]
@@ -336,12 +364,15 @@ class Instruction(object):
 
     def __str__(self):
         return "{} {}".format(self.operation, ", ".join([v for v in [self.operand0, self.operand1, self.operand2] if v is not None]))
+
     def update(self, operation, operand0, operand1, operand2):
         self.operation = operation
         self.operand0 = operand0
         self.operand1 = operand1
         self.operand2 = operand2
         pass
+
+
 class Memory(object):
     def __init__(self, offset=0x1000, print_type='DEC'):
         self.data = {}
@@ -349,6 +380,7 @@ class Memory(object):
         self.print_type = print_type
         self.offset = offset
         self.default_offset = offset
+
     def __str__(self):
         str_return = '\nMemories: (HEX: {})\n'.format(self.print_type)
         for i in list(self.data.keys())[::8]:
@@ -359,39 +391,42 @@ class Memory(object):
             elif self.print_type == 'BIN':
                 str_return += '0x{:016X}: {:064b}\n'.format(i, self[i])
         return str_return
+
     def __setitem__(self, key, value):
         # memory is stored in 8 bytes
         # so split it into 8 bytes, and store each byte into the key
         # we don't have to do this, but it will help catch code that
         # slips in memory
         self.data[key] = value & 0xFF
-        self.data[key+1] = (value >> 8) & 0xFF
-        self.data[key+2] = (value >> 16) & 0xFF
-        self.data[key+3] = (value >> 24) & 0xFF
-        self.data[key+4] = (value >> 32) & 0xFF
-        self.data[key+5] = (value >> 40) & 0xFF
-        self.data[key+6] = (value >> 48) & 0xFF
-        self.data[key+7] = (value >> 56) & 0xFF
+        self.data[key + 1] = (value >> 8) & 0xFF
+        self.data[key + 2] = (value >> 16) & 0xFF
+        self.data[key + 3] = (value >> 24) & 0xFF
+        self.data[key + 4] = (value >> 32) & 0xFF
+        self.data[key + 5] = (value >> 40) & 0xFF
+        self.data[key + 6] = (value >> 48) & 0xFF
+        self.data[key + 7] = (value >> 56) & 0xFF
+
     def __getitem__(self, key):
         return_val = 0
         try:
             # memory is stored in 8 bytes
             # so reconstruct from the 8 bytes stored
             return_val |= self.data[key]
-            return_val |= self.data[key+1] << 8
-            return_val |= self.data[key+2] << 16
-            return_val |= self.data[key+3] << 24
-            return_val |= self.data[key+4] << 32
-            return_val |= self.data[key+5] << 40
-            return_val |= self.data[key+6] << 48
-            return_val |= self.data[key+7] << 56
+            return_val |= self.data[key + 1] << 8
+            return_val |= self.data[key + 2] << 16
+            return_val |= self.data[key + 3] << 24
+            return_val |= self.data[key + 4] << 32
+            return_val |= self.data[key + 5] << 40
+            return_val |= self.data[key + 6] << 48
+            return_val |= self.data[key + 7] << 56
         except KeyError:
             # if the memory hasnt been initialized, it will throw a KeyError
             # but we want unitialized memory to just be 0
             # since return_val |= 0 << x is just return val
             # we don't have to do anything
             pass
-        return return_val if not (return_val & (1 << 63)) else (return_val - (1<<64))
+        return return_val if not (return_val & (1 << 63)) else (return_val - (1 << 64))
+
     def insert(self, line):
         # this is to take the data lines and store it with a specific label
         # the format is .dtype NAME CSV
@@ -403,8 +438,10 @@ class Memory(object):
         for value in values:
             self[self.offset] = int(value)
             self.offset += 8
+
     def reset(self):
         self.__init__()
+
 
 class Flags(object):
     def __init__(self, N=0, C=0, Z=0, V=0):
@@ -412,6 +449,7 @@ class Flags(object):
         self.C = C
         self.Z = Z
         self.V = V
+
     def update(self, N=None, C=None, Z=None, V=None):
         if N is not None:
             self.N = N
@@ -421,8 +459,11 @@ class Flags(object):
             self.Z = Z
         if V is not None:
             self.V = V
+
     def __str__(self):
         return 'Flags: N={}, C={}, V={}, Z={}'.format(self.N, self.C, self.V, self.Z)
+
+
 class Registers(object):
     def __init__(self, SP_val=0x007FFFFFFFFC, FP_val=0x007FFFFFFFFC, print_type='DEC'):
         # we can refer to the same register using multiple names
@@ -444,11 +485,12 @@ class Registers(object):
                                 'X28': 28, 'X29': 29,
                                 'X30': 30, 'X31': 31,
                                 'XZR': 31, 'LR': 30,
-                                'FP': 29, 'SP': 28 }
-        self.data = [0] * (max(self.conversion_dict.values())+1)
+                                'FP': 29, 'SP': 28}
+        self.data = [0] * (max(self.conversion_dict.values()) + 1)
         self['SP'] = SP_val
         self['FP'] = FP_val
         self.print_type = print_type
+
     def __str__(self):
         if self.print_type == 'DEC':
             str_return = '\nRegisters: (DEC)\n| ====================================================|\n| '
@@ -457,7 +499,7 @@ class Registers(object):
                 if i < 10:
                     p = ' ' + p
                 str_return += '{}: {:19} | '.format(p, self.data[i])
-                if(((i+1)%2) == 0):
+                if(((i + 1) % 2) == 0):
                     str_return += '\n| '
             str_return += '====================================================|\n'
         elif self.print_type == 'HEX':
@@ -466,8 +508,8 @@ class Registers(object):
                 p = 'X{}'.format(i)
                 if i < 10:
                     p = ' ' + p
-                str_return += '{}: {:16x} | '.format(p, self.data[i] if self.data[i] >= 0 else (1<<64) + self.data[i])
-                if(((i+1)%2) == 0):
+                str_return += '{}: {:16x} | '.format(p, self.data[i] if self.data[i] >= 0 else (1 << 64) + self.data[i])
+                if(((i + 1) % 2) == 0):
                     str_return += '\n| '
             str_return += '==============================================|\n'
         elif self.print_type == 'BIN':
@@ -476,9 +518,10 @@ class Registers(object):
                 p = 'X{}'.format(i)
                 if i < 10:
                     p = ' ' + p
-                str_return += '{}: {:064b} | \n| '.format(p, self.data[i] if self.data[i] >= 0 else (1<<64) + self.data[i])
+                str_return += '{}: {:064b} | \n| '.format(p, self.data[i] if self.data[i] >= 0 else (1 << 64) + self.data[i])
             str_return += '======================================================================|\n'
         return str_return
+
     def __getitem__(self, key):
         try:
             if isinstance(key, int):
@@ -489,6 +532,7 @@ class Registers(object):
                 raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key)))
         except KeyError:
             raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))) from None
+
     def __setitem__(self, key, value):
         try:
             if isinstance(key, int):
@@ -499,8 +543,10 @@ class Registers(object):
                 raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key)))
         except KeyError:
             raise ValueError(terminal_fonts.to_error("Register must be accessed at an integer or a keyword string. Invalid key: {0}".format(key))) from None
+
     def reset(self):
         self.__init__()
+
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -517,6 +563,7 @@ def main(argv):
         sys.stdout = open(args.output, 'w')
     a.run(verbose=args.verbose, bp=args.bp)
     print(a)
+
 
 if __name__ == '__main__':
     #main('bitonic-mergesort.s -o test-print.txt'.split())
