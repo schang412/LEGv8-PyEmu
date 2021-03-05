@@ -267,11 +267,11 @@ def main():
     test_summary = []
     units_under_test = []
 
-    units_under_test.append('FindM')
+    #units_under_test.append('FindM')
     units_under_test.append('RedLoop')
-    units_under_test.append('BLueLoop')
-    units_under_test.append('RedRecursion')
-    units_under_test.append('BLueRecursion')
+    #units_under_test.append('BLueLoop')
+    #units_under_test.append('RedRecursion')
+    #units_under_test.append('BLueRecursion')
 
     print()
     if 'FindM' in units_under_test:

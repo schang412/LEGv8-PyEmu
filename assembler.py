@@ -131,6 +131,8 @@ class Assembler(object):
                         cond_pass = not bool(self.flags.Z)
                     elif cond == 'LT':
                         cond_pass = (bool(self.flags.N) != bool(self.flags.V))
+                    elif cond == 'GT':
+                        cond_pass = (not bool(self.flags.Z) and (bool(self.flags.N) == bool(self.flags.V)))
                     elif cond == 'GE':
                         cond_pass = (bool(self.flags.N) == bool(self.flags.V))
                     elif cond == 'LE':
