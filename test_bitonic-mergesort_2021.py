@@ -32,6 +32,7 @@ import glob
 
 def floor_log2(n):
     assert n > 0
+    n = n - 1
     last = n
     n &= n - 1
     while n:
@@ -146,6 +147,8 @@ def test_blueloop(prog_obj, v=0):
         output_array = []
         for j in range(len(input_arrays[i])):
             output_array.append(prog_obj.memory[prog_obj.memory.labels['A'] + (j * 8)])
+        print(output_array)
+
 
         # print status
         if expected_output_arrays[i] == output_array:
