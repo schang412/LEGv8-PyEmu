@@ -44,6 +44,7 @@ def floor_log2(n):
 def test_findm(prog_obj, v=0):
     # test parameters
     input_n = random.sample(range(1, 5000), 10)
+    input_n += [2, 4]
     expected_output = [floor_log2(x) for x in input_n]
 
     uut = 'FindM'
@@ -208,6 +209,7 @@ def test_bluerecurssion(prog_obj, v=0):
     # test parameters
     input_arrays = [[2, 5, 7, 6], [2, 5, 7, 6, 8, 1, 3, 4], [3, 7, 8, 4, 2, 6, 5, 1], [3, 7, 4, 8, 6, 2, 1, 5]]
     expected_output_arrays = [[2, 5, 6, 7], [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8], [1, 2, 3, 4, 5, 6, 7, 8]]
+    
     uut = 'BLueRecursion'
 
     test_status_summary = []
@@ -267,11 +269,11 @@ def main():
     test_summary = []
     units_under_test = []
 
-    #units_under_test.append('FindM')
+    units_under_test.append('FindM')
     units_under_test.append('RedLoop')
-    #units_under_test.append('BLueLoop')
-    #units_under_test.append('RedRecursion')
-    #units_under_test.append('BLueRecursion')
+    units_under_test.append('BLueLoop')
+    units_under_test.append('RedRecursion')
+    units_under_test.append('BLueRecursion')
 
     print()
     if 'FindM' in units_under_test:
