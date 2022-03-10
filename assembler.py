@@ -27,6 +27,7 @@ import argparse
 import sys
 import re
 
+MAX_REVISIT_DEPTH = 1000
 
 class Assembler(object):
     def __init__(self, program):
@@ -57,6 +58,7 @@ class Assembler(object):
         self.instrs = [Instruction(asm_line) for asm_line in asm_lines]
         self.flags = Flags()
         self.console_buffer = ''
+        self._line_visit_tracker = {}
 
     def unit_test(self, uut, v=0):
         procs = ['BL {}'.format(uut.upper().strip()), 'STOP']
@@ -78,7 +80,13 @@ class Assembler(object):
             print('*** Program Execution Begin ***')
         try:
             while program_counter < len(self.instrs):
+                # fetch the instruction
                 instr = self.instrs[program_counter]
+
+                # keeps track and prevent recursion
+                self._line_visit_tracker[program_counter] = self._line_visit_tracker.get(program_counter, 0) + 1
+                if self._line_visit_tracker[program_counter] > MAX_REVISIT_DEPTH:
+                    raise RecursionError('Reached Max Recursion on instruction: {}'.format(instr))
 
                 if program_counter in self.labels.values():
                     program_counter += 1
@@ -219,6 +227,10 @@ class Assembler(object):
                         print(self.memory)
 
                 program_counter += 1
+        except RecursionError:
+            print('Command Revisit Schedule:\n')
+            for instr_num, count in self._line_visit_tracker.items():
+                print('{}: {}'.format(self.instrs[instr_num], count))
         except:
             if not verbose >= 2:
                 sys.tracebacklimit=0
